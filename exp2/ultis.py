@@ -7,11 +7,13 @@ def debug(_debug):
 	def outer_wrapper(func):
 		def wrapper(*args, **kwargs):
 			global DEBUG
-			if _debug:
-				DEBUG += 1
+			switched = False
+			if _debug != DEBUG:
+				DEBUG = _debug
+				switched = True
 			rv = func(*args, **kwargs)
-			if _debug:
-				DEBUG -= 1
+			if switched:
+				DEBUG = not _debug
 			return rv
 		return wrapper
 	return outer_wrapper

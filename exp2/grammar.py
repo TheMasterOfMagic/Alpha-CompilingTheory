@@ -8,6 +8,7 @@ class Grammar:
 		# 取有序字典里第一个key作为起始状态
 		start = tuple(table)[0]
 		self.start, self.table = start, table
+		self.firsts = None
 
 	def show(self):
 		for k, v_list in self.table.items():
@@ -17,9 +18,8 @@ class Grammar:
 	def copy(self):
 		return Grammar(deepcopy(self.table))
 
-	def analyze_firsts(self):
-		@debug(0)
-		def analyze_epsilon_vn():
+	@debug(0)
+	def analyze_epsilon_vn(self):
 			log('分析各非终结符能否推出空串')
 			log('当前有以下产生式: ')
 			tmp = self.copy()
@@ -81,5 +81,68 @@ class Grammar:
 								tmp.table.pop(k)
 								break
 						log_down()
+			log_down()
 			return x
-		print(analyze_epsilon_vn())
+
+	@debug(0)
+	def analyze_firsts(self):
+		x = self.analyze_epsilon_vn()
+		self.show()
+		log('开始扫描各产生式以构造First集关系图')
+		first_relation = dict()
+		log_up()
+		for k, v_list in self.table.items():
+			for v in v_list:
+				log('当前产生式: ' + prd_fmt.format(k, v or epsl))
+				log_up()
+				for c in v:
+					log('当前字符: {}'.format(c))
+					first_relation.setdefault(k, set())
+					first_relation[k].add(c)
+					log_up()
+					if c.islower() or not x[c]:
+						log('其不能推出空串')
+						log('故当前产生式已分析完毕')
+						log_down()
+						break
+					else:
+						log('其能推出空串')
+						log('故仍需判断下一字符')
+					log_down()
+				else:
+					log('已到达当前产生式右部的结尾')
+				log_down()
+		log('扫描得到的First集关系图: ', tc=-1)
+		for k, v_set in first_relation.items():
+			log(prd_fmt.format(k, ', '.join(sorted(v_set))))
+		log('逐个计算并消除仅指向终结符的节点', tc=-1)
+		firsts = dict((k, set()) for k in first_relation)
+		while first_relation:
+			for k, v_set in first_relation.items():
+				if not any(map(str.isupper, v_set)):
+					log('非终结符{}目前不指向任何非终结符'.format(k))
+					log('将{}并入First[{}]中'.format(', '.join(sorted(v_set)), k), tc=1)
+					firsts[k] = firsts[k].union(v_set)
+					log('并将First[{}]并入所有指向{}的节点'.format(k, k))
+					log_up()
+					for k_, v_set_ in first_relation.items():
+						if k in v_set_:
+							log('节点{}指向了节点{}'.format(k_, k))
+							log('合并结果，并删除此边', tc=1)
+							firsts[k_] = firsts[k_].union(firsts[k])
+							first_relation[k_].remove(k)
+					log('最后删除节点{}'.format(k))
+					log_down()
+					first_relation.pop(k)
+					break
+		else:
+			log_down()
+			log('First集关系图已空')
+			log('各非终结符的First集已计算完毕')
+		for k, v in x.items():
+			if v:
+				firsts[k].add('')
+		for k, v_set in firsts.items():
+			v_set = set(v if v else epsl for v in v_set)
+			log('{}: ({})'.format(k, ', '.join(v_set)))
+		self.firsts = firsts
