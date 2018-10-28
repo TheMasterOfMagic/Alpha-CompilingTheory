@@ -13,6 +13,7 @@ class Grammar:
 		self.firsts = None
 		self.follows = None
 		self.selects = None
+		self.reverse_selects = None
 
 	def show(self):
 		for k, v_list in self.table.items():
@@ -155,6 +156,7 @@ class Grammar:
 					first.remove('')
 					first = first.union(firsts[c] if c.isupper() else {c})
 				firsts[v] = first
+		log_down()
 		self.firsts = firsts
 
 	@debug(0)
@@ -201,6 +203,7 @@ class Grammar:
 							else:
 								log('因为{}不能推出终结符'.format(nxt))
 								log('故在当前产生式中对Follow({})的分析已经结束'.format(c))
+								log_down()
 								break
 							log_down()
 					log_down()
@@ -256,4 +259,43 @@ class Grammar:
 				break
 		else:
 			rv = True
+		if rv:
+			reversed_selects = dict()
+			for (left_part, right_part), v_set in self.selects.items():
+				reversed_selects.setdefault(left_part, dict())
+				for v in v_set:
+					reversed_selects[left_part][v] = right_part
+			self.reverse_selects = reversed_selects
+		return rv
+
+	@debug(1)
+	def determin_top_down(self, string):
+		stack = self.start
+		log('开始使用确定的自顶向下分析对「{}」进行判别'.format(string))
+		log_up()
+		while True:
+			log()
+			log('当前栈(顶→底): {}'.format(stack or epsl))
+			log('当前字符串: {}'.format(string or epsl))
+			if not stack or not string:
+				break
+			if stack[0] == string[0]:
+				log('两边首字符相同, 剔除', tc=1)
+				stack, string = stack[1:], string[1:]
+			else:
+				if not stack[0].isupper():
+					log('两边首字符为不同的终结符', tc=1)
+					break
+				else:
+					table = self.reverse_selects[stack[0]]
+					if string[0] not in table:
+						log('{}的各产生式的Select集中都不包含{}'.format(stack[0], string[0]), tc=1)
+						break
+					else:
+						log(prd_fmt.format(stack[0], table[string[0]] or epsl), tc=1)
+						stack = table[string[0]] + stack[1:]
+		log_down()
+		log('判别结束')
+		rv = not stack and not string
+		log('结果: {}接受'.format('' if rv else '不'))
 		return rv

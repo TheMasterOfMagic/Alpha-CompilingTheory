@@ -18,12 +18,13 @@ def main():
 		C=['AD', 'b'],
 		D=['aS', 'c'],
 	)
-	g = Grammar(e4_5)
+	g = Grammar(e4_3)
 	g.analyze_x()
 	g.analyze_firsts()
 	g.analyze_follows()
 	g.analyze_selects()
-	print(g.is_ll1())
+	if g.is_ll1():
+		g.determin_top_down('abd')
 
 
 if __name__ == '__main__':

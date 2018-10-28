@@ -11,7 +11,9 @@ def debug(_debug):
 			if _debug != DEBUG:
 				DEBUG = _debug
 				switched = True
+			tmp = t_count
 			rv = func(*args, **kwargs)
+			assert tmp == t_count
 			if switched:
 				DEBUG = not _debug
 			return rv
@@ -24,7 +26,6 @@ def log(*args, **kwargs):
 	if DEBUG:
 		tc = kwargs.pop('tc', 0)
 		end = kwargs.get('end', '\n')
-
 		t_count += tc
 		if line_feed:
 			print('\t'*t_count, end='')
