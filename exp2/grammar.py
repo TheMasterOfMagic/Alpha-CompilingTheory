@@ -56,6 +56,8 @@ class Grammar:
 				log('{}的所有产生式的右部均含有终结符，所以其肯定无法推出空串'.format(k))
 				x[k] = False
 				tmp.table.pop(k)
+			else:
+				log('{}至少有一条包含非终结符的产生式，所以暂无法判断其能否推出空串'.format(k), tc=-1)
 			log_down()
 		log_down()
 		log('判断完毕')
@@ -75,6 +77,9 @@ class Grammar:
 							log('显然{}可以推出空串'.format(k), tc=1)
 							x[k] = True
 							tmp.table.pop(k)
+							break
+						if x[c] is None:
+							log('暂不知{}能否推出空串，先跳过该产生式'.format(c))
 							break
 						log('{}'.format(c), end='')
 						log(' {}推出空串'.format({True: '可以', False: '不能'}[x[c]]))
@@ -104,7 +109,7 @@ class Grammar:
 					first_relation.setdefault(k, set())
 					first_relation[k].add(c)
 					log_up()
-					if c.islower() or not self.x[c]:
+					if not c.isupper() or not self.x[c]:
 						log('其不能推出空串')
 						log('故当前产生式已分析完毕')
 						log_down()
@@ -145,19 +150,19 @@ class Grammar:
 		for k, v_set in firsts.items():
 			v_set = sorted(map(lambda _: _ or epsl, v_set))
 			log(prd_fmt.format(k, ', '.join(v_set)))
-		for k, v_list in self.table.items():
-			for v in v_list:
-				if v in firsts:
-					continue
-				first = {''}
-				for c in v:
-					if '' not in first:
-						break
-					first.remove('')
-					first = first.union(firsts[c] if c.isupper() else {c})
-				firsts[v] = first
 		log_down()
 		self.firsts = firsts
+
+	def get_first(self, string):
+		if string not in self.firsts:
+			first = {''}
+			for c in string:
+				if '' not in first:
+					break
+				first.remove('')
+				first = first.union(self.get_first(c) if c.isupper() else {c})
+			self.firsts[string] = first
+		return self.firsts[string]
 
 	@debug(0)
 	def analyze_follows(self):
@@ -181,7 +186,7 @@ class Grammar:
 					log_up()
 					j = 1
 					while True:
-						nxt = v[i+j:i+j+1]
+						nxt = v[i + j:i + j + 1]
 						if nxt == '':
 							log('已到达产生式结尾')
 							log('故让Follow({})指向Follow({})'.format(c, k), tc=1)
@@ -193,7 +198,7 @@ class Grammar:
 							log_up()
 							log('所以Follow({})指向First({})里的每个终结符'.format(c, nxt))
 							follow_relation.setdefault(c, set())
-							for t in self.firsts[nxt]:
+							for t in self.get_first(nxt):
 								if t:
 									follow_relation[c].add(t)
 							if nxt.isupper() and self.x[nxt]:
@@ -233,7 +238,7 @@ class Grammar:
 			log_down()
 		log('得到如下的各Follow集', tc=-1)
 		for k, v_set in follows.items():
-			log(prd_fmt.format(k, ', '.join(v_set)))
+			log(prd_fmt.format(k, ', '.join(sorted(v_set))))
 		self.follows = follows
 
 	@debug(0)
@@ -241,12 +246,12 @@ class Grammar:
 		selects = dict()
 		for k, v_list in self.table.items():
 			for v in v_list:
-				select = self.firsts[v].copy()
+				select = self.get_first(v).copy()
 				if '' in select:
 					select.remove('')
 					select = select.union(self.follows[k])
 				selects[(k, v)] = select
-				log(prd_fmt.format(k, v or epsl), select)
+				log(prd_fmt.format(k, v or epsl), '——', ', '.join(sorted(select)))
 		self.selects = selects
 
 	def is_ll1(self):
@@ -268,7 +273,7 @@ class Grammar:
 			self.reverse_selects = reversed_selects
 		return rv
 
-	@debug(1)
+	@debug(0)
 	def determin_top_down(self, string):
 		stack = self.start
 		log('开始使用确定的自顶向下分析对「{}」进行判别'.format(string))
