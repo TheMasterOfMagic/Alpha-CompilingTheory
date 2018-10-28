@@ -20,69 +20,69 @@ class Grammar:
 
 	@debug(0)
 	def analyze_epsilon_vn(self):
-			log('分析各非终结符能否推出空串')
-			log('当前有以下产生式: ')
-			tmp = self.copy()
+		log('分析各非终结符能否推出空串')
+		log('当前有以下产生式: ')
+		tmp = self.copy()
+		log_up()
+		tmp.show()
+		log('其中: ', tc=-1)
+		# 若某Vn的某个产生式的右部为ϵ，那它肯定能推出空串
+		x = dict((vn, None) for vn in tmp.table)
+		for k, v_list in tmp.copy().table.items():
+			if any(map(lambda _: _ == '', v_list)):
+				log('{}有一条右部为{}的产生式，故其肯定能推出空串'.format(k, epsl))
+				x[k] = True
+				tmp.table.pop(k)
+		log_down()
+		# 若某Vn的所有产生式的右部都含有Vt，那它肯定无法推出空串
+		log('判断剩下的非终结符是否不能推出空串')
+		log_up()
+		for k in (filter(lambda _: x[_] is None, x)):
+			log('判断{}是否不能推出空串: '.format(k))
 			log_up()
-			tmp.show()
-			log('其中: ', tc=-1)
-			# 若某Vn的某个产生式的右部为ϵ，那它肯定能推出空串
-			x = dict((vn, None) for vn in tmp.table)
-			for k, v_list in tmp.copy().table.items():
-				if any(map(lambda _: _ == '', v_list)):
-					log('{}有一条右部为{}的产生式，故其肯定能推出空串'.format(k, epsl))
-					x[k] = True
-					tmp.table.pop(k)
+			for v in tmp.table[k].copy():
+				log(prd_fmt.format(k, v or epsl), end='')
+				if not all(map(str.isupper, v)):
+					log(' \t(含终结符，删除)')
+					tmp.table[k].remove(v)
+				else:
+					log()
+			if not tmp.table[k]:
+				log('{}的所有产生式的右部均含有终结符，所以其肯定无法推出空串'.format(k))
+				x[k] = False
+				tmp.table.pop(k)
 			log_down()
-			# 若某Vn的所有产生式的右部都含有Vt，那它肯定无法推出空串
-			log('判断剩下的非终结符是否不能推出空串')
-			log_up()
-			for k in (filter(lambda _: x[_] is None, x)):
-				log('判断{}是否不能推出空串: '.format(k))
-				log_up()
-				for v in tmp.table[k].copy():
-					log(prd_fmt.format(k, v or epsl), end='')
-					if not all(map(str.isupper, v)):
-						log(' \t(含终结符，删除)')
-						tmp.table[k].remove(v)
-					else:
-						log()
-				if not tmp.table[k]:
-					log('{}的所有产生式的右部均含有终结符，所以其肯定无法推出空串'.format(k))
-					x[k] = False
-					tmp.table.pop(k)
-				log_down()
-			log_down()
-			log('判断完毕')
-			# 开始循环扫描
-			log('当前剩余的产生式:')
-			log_up()
-			tmp.show()
-			log('开始循环扫描', tc=-1)
-			while tmp.table:
-				for k, v_list in tmp.table.copy().items():
-					for v in v_list:
-						log(('' + prd_fmt).format(k, v or epsl))
-						log_up()
-						for c in v + epsl:
-							if c == epsl:
-								log('已到达产生式右部的尾部')
-								log('显然{}可以推出空串'.format(k), tc=1)
-								x[k] = True
-								tmp.table.pop(k)
-								break
-							log('{}'.format(c), end='')
-							log(' {}推出空串'.format({True: '可以', False: '不能'}[x[c]]))
-							if x[c] is True:
-								log('所以需要看下一个符号', tc=1)
-							elif x[c] is False:
-								log('显然{}不能推出空串'.format(k), tc=1)
-								x[k] = False
-								tmp.table.pop(k)
-								break
-						log_down()
-			log_down()
-			return x
+		log_down()
+		log('判断完毕')
+		# 开始循环扫描
+		log('当前剩余的产生式:')
+		log_up()
+		tmp.show()
+		log('开始循环扫描', tc=-1)
+		while tmp.table:
+			for k, v_list in tmp.table.copy().items():
+				for v in v_list:
+					log(('' + prd_fmt).format(k, v or epsl))
+					log_up()
+					for c in v + epsl:
+						if c == epsl:
+							log('已到达产生式右部的尾部')
+							log('显然{}可以推出空串'.format(k), tc=1)
+							x[k] = True
+							tmp.table.pop(k)
+							break
+						log('{}'.format(c), end='')
+						log(' {}推出空串'.format({True: '可以', False: '不能'}[x[c]]))
+						if x[c] is True:
+							log('所以需要看下一个符号', tc=1)
+						elif x[c] is False:
+							log('显然{}不能推出空串'.format(k), tc=1)
+							x[k] = False
+							tmp.table.pop(k)
+							break
+					log_down()
+		log_down()
+		return x
 
 	@debug(0)
 	def analyze_firsts(self):
@@ -145,4 +145,16 @@ class Grammar:
 		for k, v_set in firsts.items():
 			v_set = set(v if v else epsl for v in v_set)
 			log('{}: ({})'.format(k, ', '.join(v_set)))
+		# 求出每个非终结符的First集后计算每个产生式右部的First集
+		for k, v_list in self.table.items():
+			for v in v_list:
+				if v in firsts:
+					continue
+				first = {''}
+				for c in v:
+					if '' not in first:
+						break
+					first.remove('')
+					first = first.union(firsts[c] if c.isupper() else {c})
+				firsts[v] = first
 		self.firsts = firsts
