@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from functools import reduce
 from copy import deepcopy
 from ultis import *
 
@@ -11,6 +12,7 @@ class Grammar:
 		self.x = None
 		self.firsts = None
 		self.follows = None
+		self.selects = None
 
 	def show(self):
 		for k, v_list in self.table.items():
@@ -86,7 +88,7 @@ class Grammar:
 		log_down()
 		self.x = x
 
-	@debug(1)
+	@debug(0)
 	def analyze_firsts(self):
 		self.show()
 		log('开始扫描各产生式以构造First集关系图')
@@ -230,3 +232,28 @@ class Grammar:
 		for k, v_set in follows.items():
 			log(prd_fmt.format(k, ', '.join(v_set)))
 		self.follows = follows
+
+	@debug(0)
+	def analyze_selects(self):
+		selects = dict()
+		for k, v_list in self.table.items():
+			for v in v_list:
+				select = self.firsts[v].copy()
+				if '' in select:
+					select.remove('')
+					select = select.union(self.follows[k])
+				selects[(k, v)] = select
+				log(prd_fmt.format(k, v or epsl), select)
+		self.selects = selects
+
+	def is_ll1(self):
+		for k, v_list in self.table.items():
+			selects = list(self.selects[(k, v)] for v in v_list)
+			len_of_sum = len(reduce(lambda x, y: x.union(y), selects))
+			sum_of_len = sum(map(len, selects))
+			if len_of_sum != sum_of_len:
+				rv = False
+				break
+		else:
+			rv = True
+		return rv

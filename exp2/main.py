@@ -3,16 +3,27 @@ from grammar import Grammar
 
 
 def main():
-	g = Grammar(OrderedDict(
+	e4_3 = OrderedDict(
+		S=['aA', 'd'],
+		A=['bAS', '']
+	)
+	e4_4 = OrderedDict(
+		S=['aAS', 'b'],
+		A=['bA', '']
+	)
+	e4_5 = OrderedDict(
 		S=['AB', 'bC'],
 		A=['', 'b'],
 		B=['', 'aD'],
-		D=['aS', 'c'],
 		C=['AD', 'b'],
-	))
+		D=['aS', 'c'],
+	)
+	g = Grammar(e4_5)
 	g.analyze_x()
 	g.analyze_firsts()
 	g.analyze_follows()
+	g.analyze_selects()
+	print(g.is_ll1())
 
 
 if __name__ == '__main__':
