@@ -10,7 +10,9 @@ def main():
 		D=['aS', 'c'],
 		C=['AD', 'b'],
 	))
+	g.analyze_x()
 	g.analyze_firsts()
+	g.analyze_follows()
 
 
 if __name__ == '__main__':

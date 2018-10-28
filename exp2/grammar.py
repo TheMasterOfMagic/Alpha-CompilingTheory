@@ -8,7 +8,9 @@ class Grammar:
 		# 取有序字典里第一个key作为起始状态
 		start = tuple(table)[0]
 		self.start, self.table = start, table
+		self.x = None
 		self.firsts = None
+		self.follows = None
 
 	def show(self):
 		for k, v_list in self.table.items():
@@ -19,7 +21,7 @@ class Grammar:
 		return Grammar(deepcopy(self.table))
 
 	@debug(0)
-	def analyze_epsilon_vn(self):
+	def analyze_x(self):
 		log('分析各非终结符能否推出空串')
 		log('当前有以下产生式: ')
 		tmp = self.copy()
@@ -82,11 +84,10 @@ class Grammar:
 							break
 					log_down()
 		log_down()
-		return x
+		self.x = x
 
 	@debug(0)
 	def analyze_firsts(self):
-		x = self.analyze_epsilon_vn()
 		self.show()
 		log('开始扫描各产生式以构造First集关系图')
 		first_relation = dict()
@@ -100,7 +101,7 @@ class Grammar:
 					first_relation.setdefault(k, set())
 					first_relation[k].add(c)
 					log_up()
-					if c.islower() or not x[c]:
+					if c.islower() or not self.x[c]:
 						log('其不能推出空串')
 						log('故当前产生式已分析完毕')
 						log_down()
@@ -139,7 +140,7 @@ class Grammar:
 			log_down()
 			log('First集关系图已空')
 			log('各非终结符的First集已计算完毕')
-		for k, v in x.items():
+		for k, v in self.x.items():
 			if v:
 				firsts[k].add('')
 		for k, v_set in firsts.items():
@@ -158,3 +159,79 @@ class Grammar:
 					first = first.union(firsts[c] if c.isupper() else {c})
 				firsts[v] = first
 		self.firsts = firsts
+
+	@debug(1)
+	def analyze_follows(self):
+		self.show()
+		log('开始扫描各产生式以构造First集关系图')
+		follow_relation = {self.start: {'#'}}
+		log_up()
+		for k, v_list in self.table.items():
+			for v in v_list:
+				log('当前产生式: ' + prd_fmt.format(k, v or epsl), end='')
+				if not any(c.isupper() for c in v):
+					log(' \t(无非终结符, 跳过)')
+					continue
+				else:
+					log()
+				log_up()
+				for i, c in enumerate(v):
+					if not c.isupper():
+						continue
+					log('当前非终结符: {}'.format(c))
+					log_up()
+					j = 1
+					while True:
+						nxt = v[i+j:i+j+1]
+						if nxt == '':
+							log('已到达产生式结尾')
+							log('故让Follow({})指向Follow({})'.format(c, k), tc=1)
+							follow_relation.setdefault(c, set())
+							follow_relation[c].add(k)
+							break
+						else:
+							log('其后面第{}个字符为{}'.format(j, nxt))
+							log_up()
+							log('所以Follow({})指向First({})里的每个终结符'.format(c, nxt))
+							follow_relation.setdefault(c, set())
+							for t in self.firsts[nxt]:
+								if t:
+									follow_relation[c].add(t)
+							if nxt.isupper() and self.x[nxt]:
+								log('因为{}可以推出终结符'.format(nxt))
+								log('故继续查看下一个字符')
+								j += 1
+							else:
+								log('因为{}不能推出终结符'.format(nxt))
+								log('故在当前产生式中对Follow({})的分析已经结束'.format(c))
+								break
+							log_down()
+					log_down()
+				log_down()
+		log_down()
+		log('扫描得到的Follow集关系图: ', tc=-1)
+		for k, v_set in follow_relation.items():
+			log(prd_fmt.format(k, ', '.join(sorted(v_set))))
+		log('计算各Follows节点所能到达的终结符', tc=-1)
+		follows = dict()
+		for k in self.table:
+			follows[k] = set()
+			stack = [k]
+			visited = set()
+			log_up()
+			while stack:
+				c = stack.pop(-1)
+				if c in visited:
+					continue
+				visited.add(c)
+				for v in follow_relation[c]:
+					if v.isupper():
+						if v not in visited:
+							stack.append(v)
+					else:
+						follows[k].add(v)
+			log_down()
+		log('得到如下的各Follow集', tc=-1)
+		for k, v_set in follows.items():
+			log(prd_fmt.format(k, ', '.join(v_set)))
+		self.follows = follows
