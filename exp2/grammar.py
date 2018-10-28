@@ -86,7 +86,7 @@ class Grammar:
 		log_down()
 		self.x = x
 
-	@debug(0)
+	@debug(1)
 	def analyze_firsts(self):
 		self.show()
 		log('开始扫描各产生式以构造First集关系图')
@@ -116,37 +116,32 @@ class Grammar:
 		log('扫描得到的First集关系图: ', tc=-1)
 		for k, v_set in first_relation.items():
 			log(prd_fmt.format(k, ', '.join(sorted(v_set))))
-		log('逐个计算并消除仅指向终结符的节点', tc=-1)
-		firsts = dict((k, set()) for k in first_relation)
-		while first_relation:
-			for k, v_set in first_relation.items():
-				if not any(map(str.isupper, v_set)):
-					log('非终结符{}目前不指向任何非终结符'.format(k))
-					log('将{}并入First[{}]中'.format(', '.join(sorted(v_set)), k), tc=1)
-					firsts[k] = firsts[k].union(v_set)
-					log('并将First[{}]并入所有指向{}的节点'.format(k, k))
-					log_up()
-					for k_, v_set_ in first_relation.items():
-						if k in v_set_:
-							log('节点{}指向了节点{}'.format(k_, k))
-							log('合并结果，并删除此边', tc=1)
-							firsts[k_] = firsts[k_].union(firsts[k])
-							first_relation[k_].remove(k)
-					log('最后删除节点{}'.format(k))
-					log_down()
-					first_relation.pop(k)
-					break
-		else:
+		log('计算各First节点所能到达的终结符', tc=-1)
+		firsts = dict()
+		for k in self.table:
+			firsts[k] = set()
+			stack = [k]
+			visited = set()
+			log_up()
+			while stack:
+				c = stack.pop(-1)
+				if c in visited:
+					continue
+				visited.add(c)
+				for v in first_relation[c]:
+					if v.isupper():
+						if v not in visited:
+							stack.append(v)
+					else:
+						firsts[k].add(v)
 			log_down()
-			log('First集关系图已空')
-			log('各非终结符的First集已计算完毕')
 		for k, v in self.x.items():
 			if v:
 				firsts[k].add('')
+		log('得到如下的各First集', tc=-1)
 		for k, v_set in firsts.items():
-			v_set = set(v if v else epsl for v in v_set)
-			log('{}: ({})'.format(k, ', '.join(v_set)))
-		# 求出每个非终结符的First集后计算每个产生式右部的First集
+			v_set = sorted(map(lambda _: _ or epsl, v_set))
+			log(prd_fmt.format(k, ', '.join(v_set)))
 		for k, v_list in self.table.items():
 			for v in v_list:
 				if v in firsts:
@@ -160,7 +155,7 @@ class Grammar:
 				firsts[v] = first
 		self.firsts = firsts
 
-	@debug(1)
+	@debug(0)
 	def analyze_follows(self):
 		self.show()
 		log('开始扫描各产生式以构造First集关系图')
