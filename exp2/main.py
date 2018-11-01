@@ -18,13 +18,21 @@ def main():
 		C=['AD', 'b'],
 		D=['aS', 'c'],
 	)
-	g = Grammar(e4_3)
+	h4_4 = OrderedDict(
+		E=['TR'],
+		R=['+E', ''],
+		T=['FY'],
+		Y=['T', ''],
+		F=['PG'],
+		G=['*G', ''],
+		P=['(E)', 'a', 'b', '^']
+	)
+	g = Grammar(h4_4)
 	g.analyze_x()
 	g.analyze_firsts()
 	g.analyze_follows()
 	g.analyze_selects()
-	if g.is_ll1():
-		g.determin_top_down('abd')
+	print(g.is_ll1())
 
 
 if __name__ == '__main__':
