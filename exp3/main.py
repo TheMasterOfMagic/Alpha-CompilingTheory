@@ -1,5 +1,6 @@
 from PriorTable import PriorTable
 from collections import OrderedDict
+import re
 
 prior_table = PriorTable()
 
@@ -60,32 +61,42 @@ g = dict(
 g_ = dict((value, key) for key, value_list in g.items() for value in value_list)
 
 
-def reduce(pt: PriorTable, s: str):
-	stack = ['#']
-	s = list(s + '#')
-	while stack and s:
+def reduce(pt: PriorTable, expression: str):
+	num_stk = ['#']
+	sym_stk = ['#']
+	num_exp = list(expression + '#')
+	sym_exp = list(re.sub(r'\d+', 'i', expression) + '#')
+	while sym_stk and sym_exp:
 		print()
-		c = s[0]
-		top = list(e for e in stack[::-1] if e in pt.keys())[0]
-		print('{} —— {}'.format(''.join(stack), ''.join(s)))
-		if pt[top, c] != 1:  # 移进
-			if top == c == '#':
+		num = num_exp[0]
+		sym = sym_exp[0]
+		top = list(e for e in sym_stk[::-1] if e in pt.keys())[0]
+		print('{} ←→ {}'.format(''.join(sym_stk), ''.join(sym_exp)))
+		print('{} ←→ {}'.format(''.join(num_stk), ''.join(num_exp)))
+		if pt[top, sym] != 1:  # 移进
+			if top == sym == '#':
 				print('接受')
 				break
 			print('移进')
-			stack.append(c)
-			s.pop(0)
+			sym_stk.append(sym)
+			num_stk.append(num)
+			sym_exp.pop(0)
+			num_exp.pop(0)
 		else:  # 归约
 			print('归约')
 			i, j = -2, -1
-			while stack[i] not in pt.keys() or stack[j] not in pt.keys() or prior_table[stack[i], stack[j]] == 0:
+			while sym_stk[i] not in pt.keys() or sym_stk[j] not in pt.keys() or prior_table[sym_stk[i], sym_stk[j]] == 0:
 				i -= 1
-				if stack[i] in pt.keys():
+				if sym_stk[i] in pt.keys():
 					j -= 1
-			right_part = stack[i + 1:]
-			left_part = g_[''.join(right_part)]
-			print('{} → {}'.format(left_part, ''.join(right_part)))
-			stack[i+1:] = [left_part]
+			sym_right_part = ''.join(sym_stk[i + 1:])
+			num_right_part = ''.join(num_stk[i + 1:])
+			sym_left_part = g_[sym_right_part]
+			num_left_part = str(eval(num_right_part))
+			print('{} → {}'.format(sym_left_part, sym_right_part))
+			print('{} → {}'.format(num_left_part, num_right_part))
+			sym_stk[i+1:] = [sym_left_part]
+			num_stk[i+1:] = [num_left_part]
 
 
-reduce(prior_table, '((i+i)*i)*(i+i)')
+reduce(prior_table, '((1+2)*3)*(4+5)')
