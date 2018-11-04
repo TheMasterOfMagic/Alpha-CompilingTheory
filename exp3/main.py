@@ -191,4 +191,10 @@ if __name__ == '__main__':
     T=['T,S', 'S']
   )
 
-  reduce(h1, '(i,(i,i))', calc=False)
+  h5 = OrderedDict(
+    B=['BoT', 'T'],
+    T=['TaF', 'F'],
+    F=['nF', '(B)', 't', 'f']
+  )
+
+  reduce(h5, 'ntofat', calc=False)
