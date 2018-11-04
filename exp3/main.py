@@ -4,8 +4,8 @@ import re
 from pprint import pprint
 
 
-def calc_prior_table(g):
-  g['S'] = ['#{}#'.format(list(g.keys())[0])]
+def calc_prior_table(g, ret_f=False, ret_l=False):
+  g['X'] = ['#{}#'.format(list(g.keys())[0])]
   # 计算关系图
   first_graph = dict()
   last_graph = dict()
@@ -67,24 +67,34 @@ def calc_prior_table(g):
         if rv[a, b] and rv[a, b] != 0:
           raise Exception
         rv[a, b] = 0
+  if ret_f or ret_l:
+    rv = [rv]
+    if ret_f:
+      rv.append(first_vt)
+    if ret_l:
+      rv.append(last_vt)
   return rv
 
 
-def reduce(g: dict, expression: str):
+def reduce(g: dict, expression: str, calc=True):
   g_ = dict((re.sub(r'[A-Z]+', 'F', value), re.sub(r'[A-Z]+', 'F', key))
             for key, value_list in g.items() for value in value_list)
   pt = calc_prior_table(g)
-  num_stk = ['#']
+  if calc:
+    num_stk = ['#']
   sym_stk = ['#']
-  num_exp = list(expression + '#')
+  if calc:
+    num_exp = list(expression + '#')
   sym_exp = list(re.sub(r'\d+', 'i', expression) + '#')
   while sym_stk and sym_exp:
     print()
-    num = num_exp[0]
+    if calc:
+      num = num_exp[0]
     sym = sym_exp[0]
     top = list(e for e in sym_stk[::-1] if e in pt.keys())[0]
     print('{} ←→ {}'.format(''.join(sym_stk), ''.join(sym_exp)))
-    print('{} ←→ {}'.format(''.join(num_stk), ''.join(num_exp)))
+    if calc:
+      print('{} ←→ {}'.format(''.join(num_stk), ''.join(num_exp)))
     print('关系: {} {} {}'.format(
       top,
       {-1: '<', 0: '=', 1: '>'}.get(pt[top, sym], '?'),
@@ -99,9 +109,11 @@ def reduce(g: dict, expression: str):
         break
       print('移进')
       sym_stk.append(sym)
-      num_stk.append(num)
+      if calc:
+        num_stk.append(num)
       sym_exp.pop(0)
-      num_exp.pop(0)
+      if calc:
+        num_exp.pop(0)
     else:  # 归约
       print('归约')
       i, j = -2, -1
@@ -110,17 +122,21 @@ def reduce(g: dict, expression: str):
         if sym_stk[i] in pt.keys():
           j -= 1
       sym_right_part = ''.join(sym_stk[i + 1:])
-      num_right_part = ''.join(num_stk[i + 1:])
+      if calc:
+        num_right_part = ''.join(num_stk[i + 1:])
       print('句柄: {}'.format(sym_right_part))
       if sym_right_part not in g_:
         print('无法归约, 因为没有以{}为右部的产生式'.format(sym_right_part))
         break
       sym_left_part = g_[sym_right_part]
-      num_left_part = str(eval(num_right_part.replace('^', '**')))
+      if calc:
+        num_left_part = str(eval(num_right_part.replace('^', '**')))
       print('{} → {}'.format(sym_left_part, sym_right_part))
-      print('{} → {}'.format(num_left_part, num_right_part))
+      if calc:
+        print('{} → {}'.format(num_left_part, num_right_part))
       sym_stk[i + 1:] = [sym_left_part]
-      num_stk[i + 1:] = [num_left_part]
+      if calc:
+        num_stk[i + 1:] = [num_left_part]
 
 
 def calc_prior_func(pt: PriorTable):
@@ -159,20 +175,20 @@ def calc_prior_func(pt: PriorTable):
 
 
 if __name__ == '__main__':
-  grammar = OrderedDict(
-    E=['E+T', 'E-T', 'T'],
-    T=['T*F', 'T/F', 'F'],
-    F=['P^F', 'P'],
-    P=['(E)', 'i']
-  )
+  # grammar = OrderedDict(
+  #   E=['E+T', 'E-T', 'T'],
+  #   T=['T*F', 'T/F', 'F'],
+  #   F=['P^F', 'P'],
+  #   P=['(E)', 'i']
+  # )
 
   # grammar = dict(
   #   F=['F+F', 'F*F', 'F^F', '(F)', 'i']
   # )
 
-  prior_table = calc_prior_table(grammar)
-  f, g = calc_prior_func(prior_table)
-  pprint(f)
-  pprint(g)
+  h1 = OrderedDict(
+    S=['i', '^', '(T)'],
+    T=['T,S', 'S']
+  )
 
-  # reduce(grammar, '((1+4)*3)^(2*(6-5))')
+  reduce(h1, '(i,(i,i))', calc=False)
