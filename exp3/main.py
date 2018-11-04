@@ -3,18 +3,6 @@ from collections import OrderedDict
 import re
 
 
-grammar = OrderedDict(
-  E=['E+T', 'E-T', 'T'],
-  T=['T*F', 'T/F', 'F'],
-  F=['P^F', 'P'],
-  P=['(E)', 'i']
-)
-
-# grammar = dict(
-#   F=['F+F', 'F*F', 'F^F', '(F)', 'i']
-# )
-
-
 def calc_prior_table(g):
   g['S'] = ['#{}#'.format(list(g.keys())[0])]
   # 计算关系图
@@ -134,4 +122,16 @@ def reduce(g: dict, expression: str):
       num_stk[i + 1:] = [num_left_part]
 
 
-reduce(grammar, '((1+4)*3)^(2*(6-5))')
+if __name__ == '__main__':
+  grammar = OrderedDict(
+    E=['E+T', 'E-T', 'T'],
+    T=['T*F', 'T/F', 'F'],
+    F=['P^F', 'P'],
+    P=['(E)', 'i']
+  )
+
+  # grammar = dict(
+  #   F=['F+F', 'F*F', 'F^F', '(F)', 'i']
+  # )
+
+  reduce(grammar, '((1+4)*3)^(2*(6-5))')
