@@ -72,7 +72,7 @@ def calc_prior_table(g):
 
 def reduce(g: dict, expression: str):
   g_ = dict((re.sub(r'[A-Z]+', 'F', value), re.sub(r'[A-Z]+', 'F', key))
-            for key, value_list in grammar.items() for value in value_list)
+            for key, value_list in g.items() for value in value_list)
   pt = calc_prior_table(g)
   num_stk = ['#']
   sym_stk = ['#']
