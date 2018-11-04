@@ -1,65 +1,18 @@
 from PriorTable import PriorTable
 from collections import OrderedDict
 import re
-from pprint import pprint
 
-prior_table = PriorTable()
-
-normal_operators = OrderedDict({
-  '+': (1, -1),
-  '-': (1, -1),
-  '*': (2, -1),
-  '/': (2, -1),
-  '^': (3, 1)
-})
-
-# 设置各运算符的优先级
-if 1:
-  # 普通运算符
-  for left in normal_operators.items():
-    for right in normal_operators.items():
-      left_op, (left_lv, left_dir) = left
-      right_op, (right_lv, right_dir) = right
-      if left_lv != right_lv:
-        prior_table[left_op, right_op] = -1 if left_lv < right_lv else 1
-      else:
-        if left_dir == right_dir == -1:  # 左结合
-          prior_table[left_op, right_op] = 1
-        elif left_dir == right_dir == 1:  # 右结合
-          prior_table[left_op, right_op] = -1
-        else:
-          raise Exception('WTF is GOING ON???')  # 给出醒目的异常提示
-  # 特殊运算符
-  for normal_op in normal_operators:
-    prior_table['(', normal_op] = prior_table[normal_op, '('] = -1
-    prior_table[')', normal_op] = prior_table[normal_op, ')'] = 1
-  prior_table['(', '('] = -1
-  prior_table['(', ')'] = 0
-  prior_table[')', ')'] = 1
-  # i运算符
-  for op in list(normal_operators) + list('()'):
-    if op != '(':
-      prior_table['i', op] = 1
-    if op != ')':
-      prior_table[op, 'i'] = -1
-  # 井号运算符
-  for op in list(normal_operators) + list('()i'):
-    prior_table['#', op] = -1
-    prior_table[op, '#'] = 1
-  prior_table['#', '#'] = 0
 
 grammar = OrderedDict(
-  E=['E+T', 'T'],
-  T=['T*F', 'F'],
+  E=['E+T', 'E-T', 'T'],
+  T=['T*F', 'T/F', 'F'],
   F=['P^F', 'P'],
   P=['(E)', 'i']
 )
 
-# g = dict(
-# 	F=['F+F', 'F*F', 'F^F', '(F)', 'i']
+# grammar = dict(
+#   F=['F+F', 'F*F', 'F^F', '(F)', 'i']
 # )
-
-g_ = dict((value, key) for key, value_list in grammar.items() for value in value_list)
 
 
 def calc_prior_table(g):
@@ -101,10 +54,37 @@ def calc_prior_table(g):
         for c in v_set:
           last_vt[k].update(last_vt[c]) if c.isupper() else last_vt[k].add(c)
         last_graph.pop(k)
-  return dict()
+  # 生成优先关系表
+  rv = PriorTable()
+  for left_part, right_part_list in g.items():
+    for right_part in right_part_list:
+      # 求'<'与'>'关系
+      for a, b in zip(right_part[:-1], right_part[1:]):
+        if not a.isupper() and b.isupper():
+          for c in first_vt[b]:
+            if rv[a, c] and rv[a, c] != -1:
+              raise Exception
+            rv[a, c] = -1
+        elif a.isupper() and not b.isupper():
+          for c in last_vt[a]:
+            if rv[c, b] and rv[c, b] != 1:
+              raise Exception
+            rv[c, b] = 1
+        else:
+          raise Exception
+      # 求'='关系
+      vt_list = list(filter(lambda _: not _.isupper(), right_part))
+      for a, b in zip(vt_list[:-1], vt_list[1:]):
+        if rv[a, b] and rv[a, b] != 0:
+          raise Exception
+        rv[a, b] = 0
+  return rv
 
 
-def reduce(pt: PriorTable, expression: str):
+def reduce(g: dict, expression: str):
+  g_ = dict((re.sub(r'[A-Z]+', 'F', value), re.sub(r'[A-Z]+', 'F', key))
+            for key, value_list in grammar.items() for value in value_list)
+  pt = calc_prior_table(g)
   num_stk = ['#']
   sym_stk = ['#']
   num_exp = list(expression + '#')
@@ -116,7 +96,15 @@ def reduce(pt: PriorTable, expression: str):
     top = list(e for e in sym_stk[::-1] if e in pt.keys())[0]
     print('{} ←→ {}'.format(''.join(sym_stk), ''.join(sym_exp)))
     print('{} ←→ {}'.format(''.join(num_stk), ''.join(num_exp)))
-    if pt[top, sym] != 1:  # 移进
+    print('关系: {} {} {}'.format(
+      top,
+      {-1: '<', 0: '=', 1: '>'}.get(pt[top, sym], '?'),
+      sym
+    ))
+    if pt[top, sym] is None:
+      print('不接受')
+      break
+    elif pt[top, sym] != 1:  # 移进
       if top == sym == '#':
         print('接受')
         break
@@ -128,19 +116,22 @@ def reduce(pt: PriorTable, expression: str):
     else:  # 归约
       print('归约')
       i, j = -2, -1
-      while sym_stk[i] not in pt.keys() or sym_stk[j] not in pt.keys() or prior_table[sym_stk[i], sym_stk[j]] == 0:
+      while sym_stk[i] not in pt.keys() or sym_stk[j] not in pt.keys() or pt[sym_stk[i], sym_stk[j]] == 0:
         i -= 1
         if sym_stk[i] in pt.keys():
           j -= 1
       sym_right_part = ''.join(sym_stk[i + 1:])
       num_right_part = ''.join(num_stk[i + 1:])
+      print('句柄: {}'.format(sym_right_part))
+      if sym_right_part not in g_:
+        print('无法归约, 因为没有以{}为右部的产生式'.format(sym_right_part))
+        break
       sym_left_part = g_[sym_right_part]
-      num_left_part = str(eval(num_right_part))
+      num_left_part = str(eval(num_right_part.replace('^', '**')))
       print('{} → {}'.format(sym_left_part, sym_right_part))
       print('{} → {}'.format(num_left_part, num_right_part))
       sym_stk[i + 1:] = [sym_left_part]
       num_stk[i + 1:] = [num_left_part]
 
 
-prior_table = calc_prior_table(grammar)
-# reduce(prior_table, '((1+2)*3)*(4+5)')
+reduce(grammar, '((1+4)*3)^(2*(6-5))')
