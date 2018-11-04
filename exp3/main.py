@@ -1,6 +1,7 @@
 from PriorTable import PriorTable
 from collections import OrderedDict
 import re
+from pprint import pprint
 
 
 def calc_prior_table(g):
@@ -122,6 +123,41 @@ def reduce(g: dict, expression: str):
       num_stk[i + 1:] = [num_left_part]
 
 
+def calc_prior_func(pt: PriorTable):
+  vt_list = list(pt.keys())
+  f_, g_ = dict((vt, set()) for vt in vt_list), dict((vt, set()) for vt in vt_list)
+  for a in vt_list:
+    for b in vt_list:
+      v = pt[a, b]
+      if v is not None:
+        if pt[a, b] >= 0:
+          f_[a].add(b)
+        if pt[a, b] <= 0:
+          g_[b].add(a)
+  f, g = dict((vt, 0) for vt in vt_list), dict((vt, 0) for vt in vt_list)
+  for vt in vt_list:
+    for t_ in 0, 1:
+      queue = [(t_, vt)]  # 0 for f, 1 for g
+      visited = set()
+      while queue:
+        t, c = queue.pop(0)
+        if (t, c) in visited:
+          continue
+        visited.add((t, c))
+        for nxt in (g_[c] if t else f_[c]):
+          if (1-t, nxt) not in visited and (1-t, nxt) not in queue:
+            queue.append((1-t, nxt))
+      (g if t_ else f)[vt] = len(visited)
+  #  计算完毕,进行检查
+  for a in vt_list:
+    for b in vt_list:
+      v = pt[a, b]
+      if v is not None:
+        v_ = f[a] - g[b]
+        assert v_ * v > 0 or v_ == v == 0
+  return f, g
+
+
 if __name__ == '__main__':
   grammar = OrderedDict(
     E=['E+T', 'E-T', 'T'],
@@ -134,4 +170,9 @@ if __name__ == '__main__':
   #   F=['F+F', 'F*F', 'F^F', '(F)', 'i']
   # )
 
-  reduce(grammar, '((1+4)*3)^(2*(6-5))')
+  prior_table = calc_prior_table(grammar)
+  f, g = calc_prior_func(prior_table)
+  pprint(f)
+  pprint(g)
+
+  # reduce(grammar, '((1+4)*3)^(2*(6-5))')
