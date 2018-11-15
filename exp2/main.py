@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from grammar import Grammar
+from exp2.grammar import Grammar
 
 
 def main():
