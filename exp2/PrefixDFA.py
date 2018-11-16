@@ -1,5 +1,5 @@
 from functools import partial
-from exp2.graph import Graph
+from exp2.reachable_graph import ReachableGraph
 
 
 class Production:

@@ -1,24 +1,23 @@
-from collections import OrderedDict
 from exp2.grammar import Grammar
 
 
 def main():
-	e4_3 = OrderedDict(
+	e4_3 = dict(
 		S=['aA', 'd'],
 		A=['bAS', '']
 	)
-	e4_4 = OrderedDict(
+	e4_4 = dict(
 		S=['aAS', 'b'],
 		A=['bA', '']
 	)
-	e4_5 = OrderedDict(
+	e4_5 = dict(
 		S=['AB', 'bC'],
 		A=['', 'b'],
 		B=['', 'aD'],
 		C=['AD', 'b'],
 		D=['aS', 'c'],
 	)
-	h4_4 = OrderedDict(
+	h4_4 = dict(
 		E=['TR'],
 		R=['+E', ''],
 		T=['FY'],
@@ -27,7 +26,7 @@ def main():
 		G=['*G', ''],
 		P=['(E)', 'a', 'b', '^']
 	)
-	g = Grammar(h4_4)
+	g = Grammar(h4_4, 'E')
 	g.analyze_x()
 	g.analyze_firsts()
 	g.analyze_follows()

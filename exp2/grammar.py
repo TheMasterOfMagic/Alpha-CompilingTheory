@@ -1,13 +1,14 @@
-from collections import OrderedDict
 from functools import reduce
 from copy import deepcopy
 from exp2.ultis import *
+from exp2.reachable_graph import ReachableGraph
 
 
 class Grammar:
-  def __init__(self, table: OrderedDict):
-    # 取有序字典里第一个key作为起始状态
-    start = tuple(table)[0]
+  def __init__(self, table: dict, start: str='S'):
+    table = dict((k, set(v)) for k, v in table.items())
+    assert start in table
+
     self.start, self.table = start, table
     self.x = None
     self.firsts = None
@@ -21,7 +22,7 @@ class Grammar:
         log(prd_fmt.format(k, v or epsl))
 
   def copy(self):
-    return Grammar(deepcopy(self.table))
+    return Grammar(deepcopy(self.table), self.start)
 
   @debug(0)
   def analyze_x(self):
@@ -125,27 +126,7 @@ class Grammar:
     for k, v_set in first_relation.items():
       log(prd_fmt.format(k, ', '.join(sorted(v_set))))
     log('计算各First节点所能到达的终结符', tc=-1)
-    firsts = dict()
-    for k in self.table:
-      firsts[k] = set()
-      stack = [k]
-      visited = set()
-      log_up()
-      while stack:
-        c = stack.pop(-1)
-        if c in visited:
-          continue
-        visited.add(c)
-        for v in first_relation[c]:
-          if v.isupper():
-            if v not in visited:
-              stack.append(v)
-          else:
-            firsts[k].add(v)
-      log_down()
-    for k, v in self.x.items():
-      if v:
-        firsts[k].add('')
+    firsts = dict(ReachableGraph(first_relation, key=lambda _: not _.isupper()))
     log('得到如下的各First集', tc=-1)
     for k, v_set in firsts.items():
       v_set = sorted(map(lambda _: _ or epsl, v_set))
@@ -154,6 +135,7 @@ class Grammar:
     self.firsts = firsts
 
   def get_first(self, string):
+    # 如果是没有计算过的终结符或多字符
     if string not in self.firsts:
       first = {''}
       for c in string:
@@ -161,6 +143,7 @@ class Grammar:
           break
         first.remove('')
         first = first.union(self.get_first(c) if c.isupper() else {c})
+      # 将终结符或多字符的计算结果放入first集中
       self.firsts[string] = first
     return self.firsts[string]
 
@@ -218,24 +201,7 @@ class Grammar:
     for k, v_set in follow_relation.items():
       log(prd_fmt.format(k, ', '.join(sorted(v_set))))
     log('计算各Follows节点所能到达的终结符', tc=-1)
-    follows = dict()
-    for k in self.table:
-      follows[k] = set()
-      stack = [k]
-      visited = set()
-      log_up()
-      while stack:
-        c = stack.pop(-1)
-        if c in visited:
-          continue
-        visited.add(c)
-        for v in follow_relation[c]:
-          if v.isupper():
-            if v not in visited:
-              stack.append(v)
-          else:
-            follows[k].add(v)
-      log_down()
+    follows = dict(ReachableGraph(follow_relation, key=lambda _: not _.isupper()))
     log('得到如下的各Follow集', tc=-1)
     for k, v_set in follows.items():
       log(prd_fmt.format(k, ', '.join(sorted(v_set))))
@@ -304,7 +270,3 @@ class Grammar:
     rv = not stack and not string
     log('结果: {}接受'.format('' if rv else '不'))
     return rv
-
-  @debug(0)
-  def build_lr0_prefix_dfa(self):
-    pass
