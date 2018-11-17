@@ -1,7 +1,8 @@
 from functools import reduce
 from copy import deepcopy
-from exp2.ultis import *
-from exp2.reachable_graph import ReachableGraph
+from exp2.utils import *
+from exp2.models import State, Project, Production
+from itertools import chain
 
 
 class Grammar:
@@ -15,6 +16,7 @@ class Grammar:
     self.follows = None
     self.selects = None
     self.reverse_selects = None
+    self.reachable_graph = None
 
   def show(self):
     for k, v_list in self.table.items():
@@ -126,7 +128,7 @@ class Grammar:
     for k, v_set in first_relation.items():
       log(prd_fmt.format(k, ', '.join(sorted(v_set))))
     log('计算各First节点所能到达的终结符', tc=-1)
-    firsts = dict(ReachableGraph(first_relation, key=lambda _: not _.isupper()))
+    firsts = analyze_reachable_graph(first_relation, key=lambda _: not _.isupper())
     log('得到如下的各First集', tc=-1)
     for k, v_set in firsts.items():
       v_set = sorted(map(lambda _: _ or epsl, v_set))
@@ -201,7 +203,7 @@ class Grammar:
     for k, v_set in follow_relation.items():
       log(prd_fmt.format(k, ', '.join(sorted(v_set))))
     log('计算各Follows节点所能到达的终结符', tc=-1)
-    follows = dict(ReachableGraph(follow_relation, key=lambda _: not _.isupper()))
+    follows = analyze_reachable_graph(follow_relation, key=lambda _: not _.isupper())
     log('得到如下的各Follow集', tc=-1)
     for k, v_set in follows.items():
       log(prd_fmt.format(k, ', '.join(sorted(v_set))))
@@ -270,3 +272,73 @@ class Grammar:
     rv = not stack and not string
     log('结果: {}接受'.format('' if rv else '不'))
     return rv
+
+  def analyze_vn_dependencies(self):
+    """分析各非终结符之间的首字符到达关系"""
+    pre_table = dict((k, set(v[0] for v in v_set if v and v[0].isupper())) for k, v_set in self.table.items())
+    reachable_graph = analyze_reachable_graph(pre_table)
+    self.reachable_graph = reachable_graph
+
+  def get_productions_of_vn(self, vn: str) -> set:
+    return set(Production(vn, right_part) for right_part in self.table[vn])
+
+  def build_state(self, state: State) -> State:
+    assert isinstance(state, State)
+
+    # 获取当前状态核心项目集中所有位于点号后面的非终结符
+    next_vns = state.next_vns
+    # 获取这些非终结符各自所能到达的范围
+    reachable_list = list(self.reachable_graph[vn] for vn in next_vns)
+    # 将这些范围合并, 得到该项目集中待加入的所有非终结符
+    vns_to_append = set(chain(*reachable_list))
+    # 计算这些非终结符所对应的产生式的集合
+    production_set_list = list(self.get_productions_of_vn(vn) for vn in vns_to_append)
+    productions_to_append = set(chain(*production_set_list))
+    # 将产生式包装为项目
+    projects_to_append = set(map(Project, productions_to_append))
+    # 将这些项目加入当前项目集,即得结果
+    rv = State(state.projects.union(projects_to_append))
+
+    rv.id = state.id
+    return rv
+
+  @debug(0)
+  def build_lr0_prefix_dfa(self):
+    assert self.reachable_graph is not None
+
+    # 扩展产生式
+    start = self.start
+    table = self.table.copy()
+    # 如果已经扩展了检查下扩展是否正确
+    if start.endswith('\''):
+      productions = table[start]
+      assert len(productions) == 1
+      [old_start] = productions
+      assert start == old_start+'\''
+    # 如果没有扩展那就进行扩展
+    else:
+      old_start, start = start, start+'\''
+      table[start] = {old_start}
+
+    # 在遍历过程中构建各状态集
+    original = self.build_state(State({Project(Production(start, old_start), 0)}, None, 0))
+    queue = [original]
+    visited = {original}
+    while len(queue) > 0:
+      current = queue.pop(0)
+      log('项目集{}: '.format(current.id))
+      log(current)
+      nexts = current.nexts
+      log('其中位于点号后面的字符有 {}'.format(', '.join(nexts)) if nexts else '其没有位于点号后面的字符')
+      for c in current.nexts:
+        node = self.build_state(current.step(c))
+        if node not in visited:
+          node.id = len(visited)
+          queue.append(node)
+          visited.add(node)
+        log('\t其经过{}可以到达项目集{}:'.format(c, node.id))
+        log(node)
+        current.set_hard_step(c, node)
+      log()
+
+    return original
